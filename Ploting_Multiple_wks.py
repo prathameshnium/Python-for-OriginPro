@@ -1,4 +1,6 @@
 import originpro as op
+import seaborn as sns
+
 gp = op.new_graph() 
 gl = gp[0]
 def generate_legend_text(size):
@@ -22,13 +24,19 @@ for wb_index in range(starting,ending,steps):
     plot=gl.add_plot(wks, 'M2','Temperature')
     #gl.group()
 
-    plot.colormap='Fire'
+    #plot.colormap='Fire'
+    pal =  sns.color_palette("Paired")# creates a colour pallete
+
+    plot.color=str(pal.as_hex()[wb_index])#convert the pallet to hex , and select the iterating variable
+
     plot.symbol_size=4
     #lgnd = gl.label('Legend')
 
 
     lgnd = gp[0].label('Legend')
     legend_text = generate_legend_text(len(range(starting,ending,steps)))
+    
+
 
     lgnd.text=legend_text
 
