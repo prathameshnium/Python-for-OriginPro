@@ -17,7 +17,12 @@ ending=int(input("Enter the Final index for the plot"))
 steps=int(input("Enter the step fot index for the plot")) 
 
 
-for wb_index in range(starting,ending+1,steps):
+Wb_List=range(starting,ending+1,steps)
+#Wb_List=[0,20,5,25,10,30,15,35,19,39]
+
+
+
+for wb_index in Wb_List:
     wks = op.find_sheet('w',wb_index)
     print(wks)
 
@@ -34,7 +39,7 @@ for wb_index in range(starting,ending+1,steps):
 
 
     lgnd = gp[0].label('Legend')
-    legend_text = generate_legend_text(len(range(starting,ending+1,steps)))
+    legend_text = generate_legend_text(len(Wb_List))
     
 
 
