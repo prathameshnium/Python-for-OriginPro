@@ -25,8 +25,10 @@ Wb_List=range(starting,ending+1,steps)
 for wb_index in Wb_List:
     wks = op.find_sheet('w',wb_index)
     print(wks)
+    
+    #Commonly used Col_names "Frequency	Cp	G(1/Rp)	E1	E2	Z1	Z2	M1	M2	tand	sigma"
 
-    plot=gl.add_plot(wks, 'E1','Temperature')
+    plot=gl.add_plot(wks, 'M2','M1')
     #gl.group()
 
     #plot.colormap='Fire'
