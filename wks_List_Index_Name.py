@@ -8,7 +8,7 @@ df_wks= pd.DataFrame()
 list1=list()
 list2=list()
 
-for wb_index in range(starting,ending,steps):
+for wb_index in range(starting,ending+1,steps):
     wks = op.find_sheet('w',wb_index)
     list1.append(wb_index)
     list2.append(str(wks))
