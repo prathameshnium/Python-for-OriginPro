@@ -42,7 +42,6 @@ for wb_index in Wb_List:
         lgnd.text=legend_text
 
 
-
     
     
     
