@@ -1,7 +1,7 @@
 import originpro as op
-#import seaborn as sns
-import sys
-sys.path.append("C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python310\\Lib\\site-packages")
+import seaborn as sns
+#import sys
+#sys.path.append("C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python310\\Lib\\site-packages")
 gp = op.new_graph() 
 gl = gp[0]
 def generate_legend_text(size):
@@ -27,22 +27,22 @@ for wb_index in Wb_List:
     wks = op.find_sheet('w',wb_index)
     print(wks)
     
-    #Commonly used Col_names "Frequency	Cp	G(1/Rp)	E1	E2	Z1	Z2	M1	M2	tand	sigma" "Field/Freq"
+    #Commonly used Col_names "Frequency	Cp	G(1/Rp)	E1	E2	Z1	Z2	M1	M2	tand	sigma" "Field/Freq" "Temperature"
     #"[500.0,1000.0,5000.0,10000.0,50000.0,100000.0,500000.0,1000000.0]"
 
     
-    for Col_Index in ['B','A']: # column names in above selectd workbooks # First Y then X axis
-        plot=gl.add_plot(wks,str(Col_Index),'Field/Freq')
+    for Col_Index in ['E1']: # column names in above selectd workbooks # First Y then X axis
+        plot=gl.add_plot(wks,str(Col_Index),'Temperature')
         #gl.group()
         
         
         plot.symbol_size=4
         
         
-        #plot.colormap='Fire'
-        #pal =  sns.color_palette("Paired")# creates a colour pallete
-        #plot.color=str(pal.as_hex()[wb_index])#convert the pallet to hex , and select the iterating variable
-        #lgnd = gl.label('Legend')
+        plot.colormap='Fire'
+        pal =  sns.color_palette("Paired")# creates a colour pallete
+        plot.color=str(pal.as_hex()[wb_index])#convert the pallet to hex , and select the iterating variable
+        lgnd = gl.label('Legend')
         lgnd = gp[0].label('Legend')
         legend_text = generate_legend_text(len(Wb_List))
         lgnd.text=legend_text
