@@ -1,6 +1,13 @@
+# Prg for Listing All Workbook in he current File , and save it in a new workbook
+#Updated On : 20 Nov 23
+
 import originpro as op
+#import sys
+#sys.path.append("C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python310\\Lib\\site-packages")
 import pandas as pd
 import numpy as np
+
+
 starting=int(input("Enter the starting index for the plot , origin indexig start with 0 : "))
 ending=int(input("Enter the Final index for the plot")) 
 steps=int(input("Enter the step fot index for the plot")) 
