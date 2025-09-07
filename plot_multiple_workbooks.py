@@ -1,5 +1,24 @@
 # Prg For Ploting Multiple Workbooks with option to specify Wks and Columns
 #Updated On : 23 Nov 23
+
+"""
+Plots data from multiple OriginPro workbooks into a single graph.
+
+This script offers two modes for selecting the source workbooks:
+1.  **Range Mode (Input_Style = 0):** The user is prompted to enter a
+    start, end, and step index to generate a range of workbooks to plot.
+2.  **List Mode (Input_Style = 1):** The user can hardcode a specific list
+    of workbook indices directly in the 'Wb_List' variable.
+
+For each selected workbook, the script plots specified data columns onto a
+single graph layer. The columns for the Y-axis and X-axis are defined by
+their string names in the plotting loop (e.g., 'Measured Polarization' vs.
+'Drive Voltage').
+
+Finally, it generates a custom legend that references the plotted datasets
+and their source worksheet names, then rescales the graph to fit all plots.
+"""
+
 import originpro as op
 #import seaborn as sns
 #import sys
