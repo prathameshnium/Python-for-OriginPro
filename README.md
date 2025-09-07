@@ -33,6 +33,10 @@ This repository contains the following scripts:
 
 *Note: Some scripts may contain hardcoded file paths or column names. Please modify them as needed for your specific use case.*
 
+## License
+
+This project is licensed under the **MIT License**. See the [`LICENSE`](LICENSE) file for the full text.
+
 ## Author
 
 * **Prathamesh Deshmukh**
