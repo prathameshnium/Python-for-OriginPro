@@ -1,3 +1,17 @@
+"""
+Scans the current OriginPro project to find all existing worksheets and
+creates a new summary sheet containing their names and indices.
+
+This script performs the following actions:
+1.  Prompts the user with an input dialog to begin the scan.
+2.  Iterates through all worksheets by index, starting from 0.
+3.  For each worksheet found, it records its index number and name.
+4.  The loop continues until no more worksheets are found at the next index.
+5.  The collected indices and names are compiled into a pandas DataFrame.
+6.  Finally, a new worksheet is created and populated with this DataFrame,
+    effectively generating a "Table of Contents" for the project's data.
+"""
+
 import originpro as op
 import pandas as pd
 import numpy as np
