@@ -1,4 +1,6 @@
-# Python Scripts for OriginPro Automation
+# Python-for-OriginPro
+
+## Python Scripts for OriginPro Automation
 
 A collection of Python scripts using the `originpro` library to automate plotting, data management, and other routine tasks in OriginLab's Origin software. These tools are designed to streamline the workflow for scientific data analysis and visualization.
 
