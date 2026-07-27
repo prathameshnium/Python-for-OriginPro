@@ -41,11 +41,16 @@ Fit / analysis reports
 Matrices
     matrices/<Book>__<Sheet>__m<N>.csv
 Graphs
-    graphs/<Graph>.png           (optionally .pdf as well)
+    graphs/png/<Graph>.png       and graphs/pdf/<Graph>.pdf — each format
+                                 selectable in the GUI, PDF on by default;
+                                 Origin's auto-generated per-column "sparkline"
+                                 graphs are skipped unless ticked
     graphs/<Graph>.info.json     layers, axis titles, ranges, scale types, and
                                  for every curve its lt_range() source
                                  book/sheet/columns
     graphs/curves/<Graph>__L<n>__P<n>.csv    the plotted XY(Z) arrays
+Notes windows
+    notes/<Name>.txt|.md|.html   full text, extension from the note's syntax
 Whole run
     MANIFEST.csv / MANIFEST.json     one row per extracted object
     EXTRACTION_LOG.txt               everything, including every fallback
@@ -86,8 +91,8 @@ KNOWN NON-COVERAGE (stated, not hidden)
 * The analysis *operation* behind a fit (its recalculate mode, input ranges and
   the live tree) is not decoded — only the report tables it produced.
 * Graph templates, annotations, drawn objects and colour/style settings are not
-  exported; the PNG is the record of appearance.
-* Notes windows, Layout pages and embedded images are not exported.
+  exported; the PNG/PDF is the record of appearance.
+* Layout pages and embedded images are not exported. (Notes windows ARE.)
 * Sheet-level import metadata trees (the "user tree" from imported files) are
   not exported.
 
@@ -125,6 +130,10 @@ REPORT_TABLES = [
 # Sheets whose name suggests analysis output; probed unless you tick "probe all"
 REPORT_HINT = re.compile(r"fit|report|result|stat|anova|nlfit|peak|analys|summar",
                          re.I)
+
+# Origin auto-generates one tiny "sparkline" graph per imported column. They
+# carry no analysis; skipped unless "include sparklines" is ticked.
+SPARKLINE_RE = re.compile(r"^sparkline\d*$", re.I)
 
 # --------------------------------------------------------------------------
 # originpro
@@ -662,19 +671,33 @@ def plot_curve_arrays(plot):
     return (out, "attribute getters") if "y" in out else (None, None)
 
 
+def is_sparkline(gp):
+    """True for Origin's per-column auto-generated sparkline graphs."""
+    if SPARKLINE_RE.match(str(getattr(gp, "name", ""))):
+        return True
+    obj = getattr(gp, "obj", None)
+    if obj is not None:
+        emb = quiet(obj.GetNumProp, "isEmbedded")
+        if emb:
+            return True
+    return False
+
+
 def dump_graph(gp, gdir, cdir, pe_path, manifest, opts):
     gname = str(getattr(gp, "name", "Graph"))
     glname = str(getattr(gp, "lname", "") or "")
     base = safe_name(gname)
 
-    for fmt in (["png"] + (["pdf"] if opts["pdf"] else [])):
-        path = os.path.join(gdir, "%s.%s" % (base, fmt))
+    fmts = ([f for f in ("png", "pdf") if opts[f]])
+    for fmt in fmts:
+        fdir = ensure_dir(os.path.join(gdir, fmt))      # graphs/png/, graphs/pdf/
+        path = os.path.join(fdir, "%s.%s" % (base, fmt))
         method = save_graph_image(gp, path, fmt)
         if method and os.path.exists(path):
             add_manifest(manifest, kind="graph_" + fmt, book=gname, sheet="",
                          long_name=glname, pe_path=pe_path, rows="", cols="",
                          file=path, note=method)
-            LOG.info("    graph  %s -> %s.%s (%s)" % (gname, base, fmt, method))
+            LOG.info("    graph  %s -> %s/%s.%s (%s)" % (gname, fmt, base, fmt, method))
         else:
             LOG.fail("no %s produced for graph %s" % (fmt, gname))
 
@@ -730,6 +753,58 @@ def dump_graph(gp, gdir, cdir, pe_path, manifest, opts):
             json.dump(info, fh, indent=2, ensure_ascii=False)
     except OSError as exc:
         LOG.fail("write %s.info.json" % base, exc)
+
+
+# --------------------------------------------------------------------------
+# notes windows
+# --------------------------------------------------------------------------
+NOTE_EXT = {0: "txt", 1: "html", 2: "md", 3: "txt"}   # Notes.syntax -> extension
+
+
+def list_note_names():
+    """Names of all Notes windows, via LabTalk 'doc -e N' enumeration."""
+    try:
+        op.lt_exec('string __PYNOTELIST$="";'
+                   'doc -e N { __PYNOTELIST$=__PYNOTELIST$+"%H|"; }')
+        raw = op.get_lt_str("__PYNOTELIST$") or ""
+        op.lt_exec("del -vs __PYNOTELIST$")
+        return [n for n in raw.split("|") if n]
+    except Exception as exc:                # noqa: BLE001
+        LOG.warn("could not enumerate Notes windows (%s: %s)" %
+                 (type(exc).__name__, exc))
+        return []
+
+
+def dump_notes(pdir, manifest, summary):
+    names = list_note_names()
+    if not names:
+        return
+    ndir = ensure_dir(os.path.join(pdir, "notes"))
+    summary["notes"] = []
+    for name in names:
+        nt = quiet(op.find_notes, name)
+        if nt is None:
+            LOG.warn("notes window '%s' listed but not reachable" % name)
+            continue
+        text = quiet(lambda n=nt: n.text)
+        if text is None:
+            LOG.warn("notes window '%s': text not readable" % name)
+            continue
+        syntax = quiet(lambda n=nt: n.syntax)
+        ext = NOTE_EXT.get(syntax, "txt")
+        p = os.path.join(ndir, safe_name(name) + "." + ext)
+        try:
+            with open(p, "w", encoding="utf-8", newline="") as fh:
+                fh.write(str(text))
+        except OSError as exc:
+            LOG.fail("write notes %s" % p, exc)
+            continue
+        add_manifest(manifest, kind="notes", book=name, sheet="", long_name="",
+                     pe_path="", rows=len(str(text).splitlines()), cols="",
+                     file=p, note="syntax=%s" % syntax)
+        summary["notes"].append(name)
+        LOG.info("    notes  %s -> notes/%s.%s (%d lines)" %
+                 (name, safe_name(name), ext, len(str(text).splitlines())))
 
 
 # --------------------------------------------------------------------------
@@ -790,12 +865,22 @@ def extract_current_project(label, outroot, opts, manifest):
             summary["matrixbooks"].append({"name": bname, "pe_path": pep,
                                            "sheets": len(msheets or [])})
 
-    if opts["graphs"]:
+    if opts["png"] or opts["pdf"] or opts["curves"]:
         gdir = ensure_dir(os.path.join(pdir, "graphs"))
         cdir = os.path.join(gdir, "curves")
+        n_spark = 0
         for gp in iter_pages("g"):
+            if not opts["sparklines"] and is_sparkline(gp):
+                n_spark += 1
+                continue
             dump_graph(gp, gdir, cdir, pe_path_of(gp), manifest, opts)
             summary["graphs"].append(str(getattr(gp, "name", "")))
+        if n_spark:
+            LOG.info("    skipped %d sparkline graphs (tick 'include sparklines' "
+                     "to export them)" % n_spark)
+
+    if opts["notes"]:
+        dump_notes(pdir, manifest, summary)
 
     try:
         with open(os.path.join(pdir, "_project_summary.json"), "w", encoding="utf-8") as fh:
@@ -1044,20 +1129,30 @@ def gui_pick(conn_msg, conn_ok):
     ttk.Button(r1, text="Choose…", command=browse_out).pack(side="left")
 
     o = cfg.get("options", {})
-    var_graphs = tk.BooleanVar(value=o.get("graphs", True))
+    var_png = tk.BooleanVar(value=o.get("png", True))
+    var_pdf = tk.BooleanVar(value=o.get("pdf", True))       # PDF on by default
+    var_spark = tk.BooleanVar(value=o.get("sparklines", False))
     var_curves = tk.BooleanVar(value=o.get("curves", True))
-    var_pdf = tk.BooleanVar(value=o.get("pdf", False))
     var_matrix = tk.BooleanVar(value=o.get("matrices", True))
+    var_notes = tk.BooleanVar(value=o.get("notes", True))
     var_probe = tk.BooleanVar(value=o.get("probe_all_reports", False))
     var_current = tk.BooleanVar(value=False)
 
     r2 = ttk.Frame(frm3)
     r2.pack(fill="x", padx=6, pady=2)
-    ttk.Checkbutton(r2, text="Graph images (PNG)", variable=var_graphs).pack(side="left")
-    ttk.Checkbutton(r2, text="also PDF", variable=var_pdf).pack(side="left", padx=8)
-    ttk.Checkbutton(r2, text="Curve data + source refs",
-                    variable=var_curves).pack(side="left", padx=8)
-    ttk.Checkbutton(r2, text="Matrices", variable=var_matrix).pack(side="left", padx=8)
+    ttk.Label(r2, text="Graphs:").pack(side="left")
+    ttk.Checkbutton(r2, text="PNG", variable=var_png).pack(side="left", padx=(4, 0))
+    ttk.Checkbutton(r2, text="PDF", variable=var_pdf).pack(side="left", padx=8)
+    ttk.Checkbutton(r2, text="include sparklines (auto per-column mini graphs)",
+                    variable=var_spark).pack(side="left", padx=8)
+
+    r2b = ttk.Frame(frm3)
+    r2b.pack(fill="x", padx=6, pady=2)
+    ttk.Checkbutton(r2b, text="Curve data + source refs",
+                    variable=var_curves).pack(side="left")
+    ttk.Checkbutton(r2b, text="Matrices", variable=var_matrix).pack(side="left", padx=8)
+    ttk.Checkbutton(r2b, text="Notes windows (text notes)",
+                    variable=var_notes).pack(side="left", padx=8)
 
     r3 = ttk.Frame(frm3)
     r3.pack(fill="x", padx=6, pady=2)
@@ -1096,10 +1191,12 @@ def gui_pick(conn_msg, conn_ok):
             messagebox.showerror("Confirm", "Tick the confirmation box — batch mode closes "
                                             "the project you have open.")
             return
-        opts = {"graphs": bool(var_graphs.get()),
-                "curves": bool(var_curves.get()) and bool(var_graphs.get()),
-                "pdf": bool(var_pdf.get()) and bool(var_graphs.get()),
+        opts = {"png": bool(var_png.get()),
+                "pdf": bool(var_pdf.get()),
+                "sparklines": bool(var_spark.get()),
+                "curves": bool(var_curves.get()),
                 "matrices": bool(var_matrix.get()),
+                "notes": bool(var_notes.get()),
                 "probe_all_reports": bool(var_probe.get()),
                 "use_open_project": use_current}
         save_settings({"search_root": var_root.get(), "output_dir": outdir,
@@ -1147,8 +1244,9 @@ def console_pick():
     outdir = input("Save to [%s]: " % cfg.get("output_dir", DEFAULT_OUTPUT_DIR)
                    ).strip() or cfg.get("output_dir", DEFAULT_OUTPUT_DIR)
     save_settings({"search_root": root, "output_dir": outdir})
-    return sel, outdir, {"graphs": True, "curves": True, "pdf": False,
-                         "matrices": True, "probe_all_reports": False,
+    return sel, outdir, {"png": True, "pdf": True, "sparklines": False,
+                         "curves": True, "matrices": True, "notes": True,
+                         "probe_all_reports": False,
                          "use_open_project": use_current}
 
 
